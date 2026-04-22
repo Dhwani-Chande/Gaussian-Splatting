@@ -1,195 +1,323 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>CS 515 — 3DGS vs Mip-Splatting | Garden</title>
-  <style>
-    *{margin:0;padding:0;box-sizing:border-box}
-    body{background:#000;color:#fff;font-family:system-ui,sans-serif;overflow:hidden}
-    canvas{display:block;width:100vw;height:100vh}
-    #ui{position:fixed;top:16px;left:50%;transform:translateX(-50%);
-         display:flex;flex-direction:column;align-items:center;gap:10px;z-index:10}
-    #title{background:rgba(0,0,0,.7);backdrop-filter:blur(8px);
-             padding:8px 20px;border-radius:20px;font-size:13px;
-             border:1px solid rgba(255,255,255,.15);letter-spacing:.4px}
-    #toggle-wrap{display:flex;background:rgba(0,0,0,.7);backdrop-filter:blur(8px);
-                  border-radius:24px;border:1px solid rgba(255,255,255,.15);overflow:hidden}
-    .tbtn{padding:8px 22px;font-size:12px;font-weight:600;cursor:pointer;
-            border:none;background:transparent;color:rgba(255,255,255,.5);transition:all .2s}
-    .tbtn.active{background:#fff;color:#000;border-radius:24px}
-    #prog-wrap{width:260px;background:rgba(0,0,0,.7);backdrop-filter:blur(8px);
-                border-radius:20px;padding:10px 16px;
-                border:1px solid rgba(255,255,255,.15);display:none}
-    #prog-label{font-size:11px;color:rgba(255,255,255,.6);margin-bottom:6px}
-    #prog-bg{height:4px;background:rgba(255,255,255,.15);border-radius:2px;overflow:hidden}
-    #prog-bar{height:100%;width:0%;background:#fff;transition:width .1s}
-    #controls{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);
-               background:rgba(0,0,0,.7);backdrop-filter:blur(8px);
-               padding:8px 20px;border-radius:20px;font-size:11px;
-               color:rgba(255,255,255,.5);border:1px solid rgba(255,255,255,.15)}
-    #badge{position:fixed;top:16px;right:16px;background:rgba(0,0,0,.7);
-             backdrop-filter:blur(8px);padding:6px 14px;border-radius:16px;
-             font-size:11px;color:rgba(255,255,255,.35);border:1px solid rgba(255,255,255,.1)}
-  </style>
-</head>
-<body>
-<canvas id="c"></canvas>
-<div id="ui">
-  <div id="title">CS 515 &mdash; 3DGS vs Mip-Splatting &nbsp;|&nbsp; Garden Scene</div>
-  <div id="toggle-wrap">
-    <button class="tbtn active" id="b3" onclick="sw('3dgs')">3DGS Baseline</button>
-    <button class="tbtn"        id="bm" onclick="sw('mip')">Mip-Splatting</button>
-  </div>
-  <div id="prog-wrap">
-    <div id="prog-label">Loading...</div>
-    <div id="prog-bg"><div id="prog-bar"></div></div>
+<html lang="en" dir="ltr">
+	<head>
+		<title>WebGL Gaussian Splat Viewer</title>
+		<meta charset="utf-8" />
+		<meta
+			name="viewport"
+			content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no"
+		/>
+		<meta name="apple-mobile-web-app-capable" content="yes" />
+		<meta
+			name="apple-mobile-web-app-status-bar-style"
+			content="black-translucent"
+		/>
+		<style>
+			body {
+				overflow: hidden;
+				margin: 0;
+				height: 100vh;
+				width: 100vw;
+				font-family: sans-serif;
+				background: black;
+    			text-shadow: 0 0 3px black;
+			}
+			a, body {
+				color: white;
+			}
+			#info {
+				z-index: 100;
+				position: absolute;
+				top: 10px;
+				left: 15px;
+			}
+			h3 {
+				margin: 5px 0;
+			}
+			p {
+				margin: 5px 0;
+				font-size: small;
+			}
+
+			.cube-wrapper {
+				transform-style: preserve-3d;
+			}
+
+			.cube {
+				transform-style: preserve-3d;
+				transform: rotateX(45deg) rotateZ(45deg);
+				animation: rotation 2s infinite;
+			}
+
+			.cube-faces {
+				transform-style: preserve-3d;
+				height: 80px;
+				width: 80px;
+				position: relative;
+				transform-origin: 0 0;
+				transform: translateX(0) translateY(0) translateZ(-40px);
+			}
+
+			.cube-face {
+				position: absolute;
+				inset: 0;
+				background: #0017ff;
+				border: solid 1px #ffffff;
+			}
+			.cube-face.top {
+				transform: translateZ(80px);
+			}
+			.cube-face.front {
+				transform-origin: 0 50%;
+				transform: rotateY(-90deg);
+			}
+			.cube-face.back {
+				transform-origin: 0 50%;
+				transform: rotateY(-90deg) translateZ(-80px);
+			}
+			.cube-face.right {
+				transform-origin: 50% 0;
+				transform: rotateX(-90deg) translateY(-80px);
+			}
+			.cube-face.left {
+				transform-origin: 50% 0;
+				transform: rotateX(-90deg) translateY(-80px) translateZ(80px);
+			}
+
+			@keyframes rotation {
+				0% {
+					transform: rotateX(45deg) rotateY(0) rotateZ(45deg);
+					animation-timing-function: cubic-bezier(
+						0.17,
+						0.84,
+						0.44,
+						1
+					);
+				}
+				50% {
+					transform: rotateX(45deg) rotateY(0) rotateZ(225deg);
+					animation-timing-function: cubic-bezier(
+						0.76,
+						0.05,
+						0.86,
+						0.06
+					);
+				}
+				100% {
+					transform: rotateX(45deg) rotateY(0) rotateZ(405deg);
+					animation-timing-function: cubic-bezier(
+						0.17,
+						0.84,
+						0.44,
+						1
+					);
+				}
+			}
+
+			.scene,
+			#message {
+				position: absolute;
+				display: flex;
+				top: 0;
+				right: 0;
+				left: 0;
+				bottom: 0;
+				z-index: 2;
+				height: 100%;
+				width: 100%;
+				align-items: center;
+				justify-content: center;
+			}
+			#message {
+				font-weight: bold;
+				font-size: large;
+				color: red;
+				pointer-events: none;
+			}
+
+			details {
+				font-size: small;
+
+			}
+
+			#progress {
+				position: absolute;
+				top: 0;
+				height: 5px;
+				background: blue;
+				z-index: 99;
+				transition: width 0.1s ease-in-out;
+			}
+
+			#quality {
+				position: absolute;
+				bottom: 10px;
+				z-index: 999;
+				right: 10px;
+			}
+
+			#caminfo {
+				position: absolute;
+				top: 10px;
+				z-index: 999;
+				right: 10px;
+			}
+			#canvas {
+				display: block;
+				position: absolute;
+				top: 0;
+				left: 0;
+				width: 100%;
+				height: 100%;
+				touch-action: none;
+			}
+
+			#instructions {
+				background: rgba(0,0,0,0.6);
+				white-space: pre-wrap;
+				padding: 10px;
+				border-radius: 10px;
+				font-size: x-small;
+			}
+			body.nohf .nohf {
+				display: none;
+			}
+			body.nohf #progress, body.nohf .cube-face {
+				background: #ff9d0d;
+			}
+		</style>
+	</head>
+	<body>
+
+<style>
+#cs515-ui{position:fixed;top:16px;left:50%;transform:translateX(-50%);
+  display:flex;flex-direction:column;align-items:center;gap:10px;z-index:9999;
+  font-family:system-ui,sans-serif}
+#cs515-title{background:rgba(0,0,0,.7);backdrop-filter:blur(8px);
+  padding:8px 20px;border-radius:20px;font-size:13px;color:#fff;
+  border:1px solid rgba(255,255,255,.15)}
+#cs515-toggle{display:flex;background:rgba(0,0,0,.7);backdrop-filter:blur(8px);
+  border-radius:24px;border:1px solid rgba(255,255,255,.15);overflow:hidden}
+.cs515-btn{padding:8px 22px;font-size:12px;font-weight:600;cursor:pointer;
+  border:none;background:transparent;color:rgba(255,255,255,.5);transition:all .2s}
+.cs515-btn.active{background:#fff;color:#000;border-radius:24px}
+#cs515-badge{position:fixed;top:16px;right:16px;background:rgba(0,0,0,.7);
+  backdrop-filter:blur(8px);padding:6px 14px;border-radius:16px;font-size:11px;
+  color:rgba(255,255,255,.4);border:1px solid rgba(255,255,255,.1)}
+</style>
+<div id="cs515-ui">
+  <div id="cs515-title">CS 515 — 3DGS vs Mip-Splatting | Garden Scene</div>
+  <div id="cs515-toggle">
+    <button class="cs515-btn active" id="btn3" onclick="cs515Switch('3dgs')">3DGS Baseline</button>
+    <button class="cs515-btn"        id="btnm" onclick="cs515Switch('mip')">Mip-Splatting</button>
   </div>
 </div>
-<div id="controls">WASD / Arrows — move &nbsp;|&nbsp; Drag — look &nbsp;|&nbsp; Scroll — speed &nbsp;|&nbsp; Q/E — up/down</div>
-<div id="badge">CS 515 Advanced CV</div>
+<div id="cs515-badge">CS 515 Advanced CV</div>
 <script>
-const MODELS={"3dgs":"garden_3dgs.splat","mip":"garden_mip.splat"};
-let cur="3dgs",splat=null;
-const cam={p:[0,0,3],pitch:0,yaw:0,spd:0.05,sens:0.003};
-const keys={};
-let drag=false,lx=0,ly=0;
-const canvas=document.getElementById("c");
-const gl=canvas.getContext("webgl2",{antialias:false});
-document.addEventListener("keydown",e=>keys[e.key.toLowerCase()]=true);
-document.addEventListener("keyup",e=>keys[e.key.toLowerCase()]=false);
-canvas.addEventListener("mousedown",e=>{drag=true;lx=e.clientX;ly=e.clientY});
-canvas.addEventListener("mouseup",()=>drag=false);
-canvas.addEventListener("mousemove",e=>{if(!drag)return;
-  cam.yaw-=(e.clientX-lx)*cam.sens;cam.pitch-=(e.clientY-ly)*cam.sens;
-  cam.pitch=Math.max(-1.5,Math.min(1.5,cam.pitch));lx=e.clientX;ly=e.clientY});
-canvas.addEventListener("wheel",e=>cam.spd=Math.max(0.005,Math.min(1,cam.spd*(e.deltaY>0?.9:1.1))));
-async function loadSplat(url){
-  const pw=document.getElementById("prog-wrap"),
-        bar=document.getElementById("prog-bar"),
-        lbl=document.getElementById("prog-label");
-  pw.style.display="block";
-  const res=await fetch(url),total=+res.headers.get("content-length")||0;
-  const reader=res.body.getReader(),chunks=[];let loaded=0;
-  while(true){const{done,value}=await reader.read();if(done)break;
-    chunks.push(value);loaded+=value.length;
-    const p=total?(loaded/total*100).toFixed(0):"?";
-    bar.style.width=p+"%";lbl.textContent=`Loading ${p}%  (${(loaded/1e6).toFixed(1)} MB)`;}
-  pw.style.display="none";
-  const buf=new Uint8Array(loaded);let off=0;
-  for(const c of chunks){buf.set(c,off);off+=c.length;}
-  return buf.buffer;
+const CS515_MODELS = {"3dgs": "garden_3dgs.splat", "mip": "garden_mip.splat"};
+let cs515_cur = "3dgs";
+function cs515Switch(k) {
+  if (k === cs515_cur) return;
+  cs515_cur = k;
+  document.getElementById("btn3").classList.toggle("active", k==="3dgs");
+  document.getElementById("btnm").classList.toggle("active", k==="mip");
+  // Use the base viewer's load function
+  if (typeof loadFile === 'function') loadFile(CS515_MODELS[k]);
+  else if (typeof load === 'function') load(CS515_MODELS[k]);
 }
-function parseSplat(buf){
-  const n=buf.byteLength/32,v=new DataView(buf);
-  const pos=new Float32Array(n*3),sc=new Float32Array(n*3),
-        col=new Uint8Array(n*4),rot=new Uint8Array(n*4);
-  for(let i=0;i<n;i++){const b=i*32;
-    pos[i*3]=v.getFloat32(b,true);pos[i*3+1]=v.getFloat32(b+4,true);pos[i*3+2]=v.getFloat32(b+8,true);
-    sc[i*3]=v.getFloat32(b+12,true);sc[i*3+1]=v.getFloat32(b+16,true);sc[i*3+2]=v.getFloat32(b+20,true);
-    col[i*4]=v.getUint8(b+24);col[i*4+1]=v.getUint8(b+25);col[i*4+2]=v.getUint8(b+26);col[i*4+3]=v.getUint8(b+27);
-    rot[i*4]=v.getUint8(b+28);rot[i*4+1]=v.getUint8(b+29);rot[i*4+2]=v.getUint8(b+30);rot[i*4+3]=v.getUint8(b+31);}
-  return{n,pos,sc,col,rot};
-}
-const VS=`#version 300 es
-precision highp float;
-uniform mat4 uP,uV;uniform vec2 uF,uVP;
-in vec3 aPos,aSc;in vec4 aCol;in vec4 aRot;
-out vec4 vCol;out vec2 vUV;
-mat3 q2m(vec4 q){float x=q.x,y=q.y,z=q.z,w=q.w;return mat3(
-  1.-2.*(y*y+z*z),2.*(x*y+w*z),2.*(x*z-w*y),
-  2.*(x*y-w*z),1.-2.*(x*x+z*z),2.*(y*z+w*x),
-  2.*(x*z+w*y),2.*(y*z-w*x),1.-2.*(x*x+y*y));}
-void main(){
-  vec2 Q[4]=vec2[](vec2(-1,-1),vec2(1,-1),vec2(-1,1),vec2(1,1));
-  vec2 q=Q[gl_VertexID%4];int idx=gl_VertexID/4;
-  vec4 cp=uV*vec4(aPos,1.);
-  if(cp.z>-.1){gl_Position=vec4(2.,2.,2.,1.);return;}
-  vec4 r=(aRot-128.)/128.;r=normalize(r);
-  mat3 M=mat3(uV)*q2m(r)*mat3(aSc.x,0,0,0,aSc.y,0,0,0,aSc.z);
-  mat3 cv=M*transpose(M);
-  mat2 J=mat2(uF.x/cp.z,0.,0.,uF.y/cp.z);
-  mat2 T=J*mat2(cv[0].xy,cv[1].xy)*transpose(J);
-  T[0][0]+=.3;T[1][1]+=.3;
-  float det=T[0][0]*T[1][1]-T[0][1]*T[1][0];
-  if(det==0.){gl_Position=vec4(2.,2.,2.,1.);return;}
-  float mid=.5*(T[0][0]+T[1][1]);
-  float l1=mid+sqrt(max(.1,mid*mid-det)),l2=mid-sqrt(max(.1,mid*mid-det));
-  vec2 v1=normalize(vec2(T[0][1],l1-T[0][0])),v2=vec2(v1.y,-v1.x);
-  vec2 nc=cp.xy/cp.z*uF/uVP*2.;
-  vec2 d=(q.x*v1*sqrt(l1)+q.y*v2*sqrt(l2))*3./uVP*2.;
-  gl_Position=vec4(nc+d,0.,1.);vUV=q;vCol=aCol;}`;
-const FS=`#version 300 es
-precision highp float;
-in vec4 vCol;in vec2 vUV;out vec4 fc;
-void main(){
-  float a=vCol.a*exp(-.5*(vUV.x*vUV.x+vUV.y*vUV.y)*9.);
-  if(a<.02)discard;
-  fc=vec4(vCol.rgb,a);}`;
-function sh(t,s){const x=gl.createShader(t);gl.shaderSource(x,s);
-  gl.compileShader(x);if(!gl.getShaderParameter(x,gl.COMPILE_STATUS))console.error(gl.getShaderInfoLog(x));return x;}
-const prog=gl.createProgram();
-gl.attachShader(prog,sh(gl.VERTEX_SHADER,VS));
-gl.attachShader(prog,sh(gl.FRAGMENT_SHADER,FS));
-gl.linkProgram(prog);gl.useProgram(prog);
-const uP=gl.getUniformLocation(prog,"uP"),uV=gl.getUniformLocation(prog,"uV"),
-      uF=gl.getUniformLocation(prog,"uF"),uVP=gl.getUniformLocation(prog,"uVP");
-let vao=null,bPos,bSc,bCol,bRot;
-function upload(d){
-  if(vao)gl.deleteVertexArray(vao);
-  vao=gl.createVertexArray();gl.bindVertexArray(vao);
-  function attr(buf,data,name,sz,type,norm){
-    if(buf)gl.deleteBuffer(buf);buf=gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER,buf);
-    gl.bufferData(gl.ARRAY_BUFFER,data,gl.STATIC_DRAW);
-    const loc=gl.getAttribLocation(prog,name);
-    gl.enableVertexAttribArray(loc);
-    gl.vertexAttribPointer(loc,sz,type,norm,0,0);
-    gl.vertexAttribDivisor(loc,1);return buf;}
-  bPos=attr(bPos,d.pos,"aPos",3,gl.FLOAT,false);
-  bSc =attr(bSc, d.sc, "aSc", 3,gl.FLOAT,false);
-  bCol=attr(bCol,d.col,"aCol",4,gl.UNSIGNED_BYTE,true);
-  bRot=attr(bRot,d.rot,"aRot",4,gl.UNSIGNED_BYTE,false);
-  gl.bindVertexArray(null);splat=d;}
-function p4(f,a,n,fa){const t=1/Math.tan(f/2),nf=1/(n-fa);
-  return new Float32Array([t/a,0,0,0,0,t,0,0,0,0,(fa+n)*nf,-1,0,0,2*fa*n*nf,0]);}
-function v4(p,pi,ya){const cp=Math.cos(pi),sp=Math.sin(pi),cy=Math.cos(ya),sy=Math.sin(ya);
-  const rx=Math.cos(ya-Math.PI/2),rz=Math.sin(ya-Math.PI/2);
-  const[px,py,pz]=p;
-  return new Float32Array([rx,0,rz,0,0,cp,0,0,-cy*cp,-sp,-sy*cp,0,
-    -(rx*px+rz*pz),-(cp*py),cy*cp*px+sp*py+sy*cp*pz,1]);}
-function resize(){canvas.width=window.innerWidth*devicePixelRatio;
-  canvas.height=window.innerHeight*devicePixelRatio;
-  gl.viewport(0,0,canvas.width,canvas.height);}
-window.addEventListener("resize",resize);resize();
-function frame(){
-  requestAnimationFrame(frame);if(!splat)return;
-  const cp=Math.cos(cam.pitch),sp=Math.sin(cam.pitch);
-  const cy=Math.cos(cam.yaw),sy=Math.sin(cam.yaw);
-  const fwd=[cy*cp,sp,sy*cp],rt=[Math.cos(cam.yaw-Math.PI/2),0,Math.sin(cam.yaw-Math.PI/2)];
-  const s=cam.spd;
-  if(keys["w"]||keys["arrowup"])  {cam.p[0]+=fwd[0]*s;cam.p[1]+=fwd[1]*s;cam.p[2]+=fwd[2]*s;}
-  if(keys["s"]||keys["arrowdown"]){cam.p[0]-=fwd[0]*s;cam.p[1]-=fwd[1]*s;cam.p[2]-=fwd[2]*s;}
-  if(keys["a"]||keys["arrowleft"]){cam.p[0]-=rt[0]*s;cam.p[2]-=rt[2]*s;}
-  if(keys["d"]||keys["arrowright"]){cam.p[0]+=rt[0]*s;cam.p[2]+=rt[2]*s;}
-  if(keys["q"])cam.p[1]-=s;if(keys["e"])cam.p[1]+=s;
-  const asp=canvas.width/canvas.height;
-  const proj=p4(Math.PI/3,asp,.1,100),view=v4(cam.p,cam.pitch,cam.yaw);
-  const fx=canvas.width/(2*Math.tan(Math.PI/6)),fy=canvas.height/(2*Math.tan(Math.PI/6));
-  gl.clearColor(0,0,0,1);gl.clear(gl.COLOR_BUFFER_BIT);
-  gl.enable(gl.BLEND);
-  gl.blendFuncSeparate(gl.ONE_MINUS_DST_ALPHA,gl.ONE,gl.ONE_MINUS_DST_ALPHA,gl.ONE);
-  gl.disable(gl.DEPTH_TEST);
-  gl.useProgram(prog);
-  gl.uniformMatrix4fv(uP,false,proj);gl.uniformMatrix4fv(uV,false,view);
-  gl.uniform2f(uF,fx,fy);gl.uniform2f(uVP,canvas.width,canvas.height);
-  gl.bindVertexArray(vao);
-  gl.drawArraysInstanced(gl.TRIANGLE_STRIP,0,4,splat.n);
-  gl.bindVertexArray(null);}
-async function sw(k){
-  if(k===cur)return;cur=k;
-  document.getElementById("b3").classList.toggle("active",k==="3dgs");
-  document.getElementById("bm").classList.toggle("active",k==="mip");
-  upload(parseSplat(await loadSplat(MODELS[k])));}
-(async()=>{upload(parseSplat(await loadSplat(MODELS["3dgs"])));requestAnimationFrame(frame);})();
-</script></body></html>
+// Override default file on load
+window.addEventListener('load', () => {
+  setTimeout(() => {
+    if (typeof loadFile === 'function') loadFile(CS515_MODELS["3dgs"]);
+    else if (typeof load === 'function') load(CS515_MODELS["3dgs"]);
+  }, 500);
+});
+</script>
+
+		<script>
+			if(location.host.includes('hf.space')) document.body.classList.add('nohf');
+		</script>
+		<div id="info">
+			<h3 class="nohf">WebGL 3D Gaussian Splat Viewer</h3>
+			<p>
+			<small class="nohf">
+				By <a href="https://twitter.com/antimatter15">Kevin Kwok</a>.
+				Code on
+				<a href="https://github.com/antimatter15/splat">Github</a
+				>.
+			</small>
+		</p>
+
+			<details>
+			<summary>Use mouse or arrow keys to navigate.</summary>
+
+<div id="instructions">movement (arrow keys)
+- left/right arrow keys to strafe side to side
+- up/down arrow keys to move forward/back
+- space to jump
+
+camera angle (wasd)
+- a/d to turn camera left/right
+- w/s to tilt camera up/down
+- q/e to roll camera counterclockwise/clockwise
+- i/k and j/l to orbit
+
+trackpad
+- scroll up/down/left/right to orbit
+- pinch to move forward/back
+- ctrl key + scroll to move forward/back
+- shift + scroll to move up/down or strafe
+
+mouse
+- click and drag to orbit
+- right click (or ctrl/cmd key) and drag up/down to move
+
+touch (mobile)
+- one finger to orbit
+- two finger pinch to move forward/back
+- two finger rotate to rotate camera clockwise/counterclockwise
+- two finger pan to move side-to-side and up-down
+
+gamepad
+- if you have a game controller connected it should work
+
+other
+- press 0-9 to switch to one of the pre-loaded camera views
+- press '-' or '+'key to cycle loaded cameras
+- press p to resume default animation
+- drag and drop .ply file to convert to .splat
+- drag and drop cameras.json to load cameras
+</div>
+
+		</details>
+			
+		</div>
+
+		<div id="progress"></div>
+
+		<div id="message"></div>
+		<div class="scene" id="spinner">
+			<div class="cube-wrapper">
+				<div class="cube">
+					<div class="cube-faces">
+						<div class="cube-face bottom"></div>
+						<div class="cube-face top"></div>
+						<div class="cube-face left"></div>
+						<div class="cube-face right"></div>
+						<div class="cube-face back"></div>
+						<div class="cube-face front"></div>
+					</div>
+				</div>
+			</div>
+		</div>
+		<canvas id="canvas"></canvas>
+
+		<div id="quality">
+			<span id="fps"></span>
+		</div>
+		<div id="caminfo">
+			<span id="camid"></span>
+		</div>
+		<script src="main.js"></script>
+	</body>
+</html>
