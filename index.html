@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>CS 515 — 3DGS vs Mip-Splatting | Garden</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{background:#000;color:#fff;font-family:system-ui,sans-serif;overflow:hidden}
+    canvas{display:block;width:100vw;height:100vh}
+    #ui{position:fixed;top:16px;left:50%;transform:translateX(-50%);
+         display:flex;flex-direction:column;align-items:center;gap:10px;z-index:10}
+    #title{background:rgba(0,0,0,.7);backdrop-filter:blur(8px);
+             padding:8px 20px;border-radius:20px;font-size:13px;
+             border:1px solid rgba(255,255,255,.15);letter-spacing:.4px}
+    #toggle-wrap{display:flex;background:rgba(0,0,0,.7);backdrop-filter:blur(8px);
+                  border-radius:24px;border:1px solid rgba(255,255,255,.15);overflow:hidden}
+    .tbtn{padding:8px 22px;font-size:12px;font-weight:600;cursor:pointer;
+            border:none;background:transparent;color:rgba(255,255,255,.5);transition:all .2s}
+    .tbtn.active{background:#fff;color:#000;border-radius:24px}
+    #prog-wrap{width:260px;background:rgba(0,0,0,.7);backdrop-filter:blur(8px);
+                border-radius:20px;padding:10px 16px;
+                border:1px solid rgba(255,255,255,.15);display:none}
+    #prog-label{font-size:11px;color:rgba(255,255,255,.6);margin-bottom:6px}
+    #prog-bg{height:4px;background:rgba(255,255,255,.15);border-radius:2px;overflow:hidden}
+    #prog-bar{height:100%;width:0%;background:#fff;transition:width .1s}
+    #controls{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);
+               background:rgba(0,0,0,.7);backdrop-filter:blur(8px);
+               padding:8px 20px;border-radius:20px;font-size:11px;
+               color:rgba(255,255,255,.5);border:1px solid rgba(255,255,255,.15)}
+    #badge{position:fixed;top:16px;right:16px;background:rgba(0,0,0,.7);
+             backdrop-filter:blur(8px);padding:6px 14px;border-radius:16px;
+             font-size:11px;color:rgba(255,255,255,.35);border:1px solid rgba(255,255,255,.1)}
+  </style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="ui">
+  <div id="title">CS 515 &mdash; 3DGS vs Mip-Splatting &nbsp;|&nbsp; Garden Scene</div>
+  <div id="toggle-wrap">
+    <button class="tbtn active" id="b3" onclick="sw('3dgs')">3DGS Baseline</button>
+    <button class="tbtn"        id="bm" onclick="sw('mip')">Mip-Splatting</button>
+  </div>
+  <div id="prog-wrap">
+    <div id="prog-label">Loading...</div>
+    <div id="prog-bg"><div id="prog-bar"></div></div>
+  </div>
+</div>
+<div id="controls">WASD / Arrows — move &nbsp;|&nbsp; Drag — look &nbsp;|&nbsp; Scroll — speed &nbsp;|&nbsp; Q/E — up/down</div>
+<div id="badge">CS 515 Advanced CV</div>
+<script>
+const MODELS={"3dgs":"garden_3dgs.splat","mip":"garden_mip.splat"};
+let cur="3dgs",splat=null;
+const cam={p:[0,0,3],pitch:0,yaw:0,spd:0.05,sens:0.003};
+const keys={};
+let drag=false,lx=0,ly=0;
+const canvas=document.getElementById("c");
+const gl=canvas.getContext("webgl2",{antialias:false});
+document.addEventListener("keydown",e=>keys[e.key.toLowerCase()]=true);
+document.addEventListener("keyup",e=>keys[e.key.toLowerCase()]=false);
+canvas.addEventListener("mousedown",e=>{drag=true;lx=e.clientX;ly=e.clientY});
+canvas.addEventListener("mouseup",()=>drag=false);
+canvas.addEventListener("mousemove",e=>{if(!drag)return;
+  cam.yaw-=(e.clientX-lx)*cam.sens;cam.pitch-=(e.clientY-ly)*cam.sens;
+  cam.pitch=Math.max(-1.5,Math.min(1.5,cam.pitch));lx=e.clientX;ly=e.clientY});
+canvas.addEventListener("wheel",e=>cam.spd=Math.max(0.005,Math.min(1,cam.spd*(e.deltaY>0?.9:1.1))));
+async function loadSplat(url){
+  const pw=document.getElementById("prog-wrap"),
+        bar=document.getElementById("prog-bar"),
+        lbl=document.getElementById("prog-label");
+  pw.style.display="block";
+  const res=await fetch(url),total=+res.headers.get("content-length")||0;
+  const reader=res.body.getReader(),chunks=[];let loaded=0;
+  while(true){const{done,value}=await reader.read();if(done)break;
+    chunks.push(value);loaded+=value.length;
+    const p=total?(loaded/total*100).toFixed(0):"?";
+    bar.style.width=p+"%";lbl.textContent=`Loading ${p}%  (${(loaded/1e6).toFixed(1)} MB)`;}
+  pw.style.display="none";
+  const buf=new Uint8Array(loaded);let off=0;
+  for(const c of chunks){buf.set(c,off);off+=c.length;}
+  return buf.buffer;
+}
+function parseSplat(buf){
+  const n=buf.byteLength/32,v=new DataView(buf);
+  const pos=new Float32Array(n*3),sc=new Float32Array(n*3),
+        col=new Uint8Array(n*4),rot=new Uint8Array(n*4);
+  for(let i=0;i<n;i++){const b=i*32;
+    pos[i*3]=v.getFloat32(b,true);pos[i*3+1]=v.getFloat32(b+4,true);pos[i*3+2]=v.getFloat32(b+8,true);
+    sc[i*3]=v.getFloat32(b+12,true);sc[i*3+1]=v.getFloat32(b+16,true);sc[i*3+2]=v.getFloat32(b+20,true);
+    col[i*4]=v.getUint8(b+24);col[i*4+1]=v.getUint8(b+25);col[i*4+2]=v.getUint8(b+26);col[i*4+3]=v.getUint8(b+27);
+    rot[i*4]=v.getUint8(b+28);rot[i*4+1]=v.getUint8(b+29);rot[i*4+2]=v.getUint8(b+30);rot[i*4+3]=v.getUint8(b+31);}
+  return{n,pos,sc,col,rot};
+}
+const VS=`#version 300 es
+precision highp float;
+uniform mat4 uP,uV;uniform vec2 uF,uVP;
+in vec3 aPos,aSc;in vec4 aCol;in vec4 aRot;
+out vec4 vCol;out vec2 vUV;
+mat3 q2m(vec4 q){float x=q.x,y=q.y,z=q.z,w=q.w;return mat3(
+  1.-2.*(y*y+z*z),2.*(x*y+w*z),2.*(x*z-w*y),
+  2.*(x*y-w*z),1.-2.*(x*x+z*z),2.*(y*z+w*x),
+  2.*(x*z+w*y),2.*(y*z-w*x),1.-2.*(x*x+y*y));}
+void main(){
+  vec2 Q[4]=vec2[](vec2(-1,-1),vec2(1,-1),vec2(-1,1),vec2(1,1));
+  vec2 q=Q[gl_VertexID%4];int idx=gl_VertexID/4;
+  vec4 cp=uV*vec4(aPos,1.);
+  if(cp.z>-.1){gl_Position=vec4(2.,2.,2.,1.);return;}
+  vec4 r=(aRot-128.)/128.;r=normalize(r);
+  mat3 M=mat3(uV)*q2m(r)*mat3(aSc.x,0,0,0,aSc.y,0,0,0,aSc.z);
+  mat3 cv=M*transpose(M);
+  mat2 J=mat2(uF.x/cp.z,0.,0.,uF.y/cp.z);
+  mat2 T=J*mat2(cv[0].xy,cv[1].xy)*transpose(J);
+  T[0][0]+=.3;T[1][1]+=.3;
+  float det=T[0][0]*T[1][1]-T[0][1]*T[1][0];
+  if(det==0.){gl_Position=vec4(2.,2.,2.,1.);return;}
+  float mid=.5*(T[0][0]+T[1][1]);
+  float l1=mid+sqrt(max(.1,mid*mid-det)),l2=mid-sqrt(max(.1,mid*mid-det));
+  vec2 v1=normalize(vec2(T[0][1],l1-T[0][0])),v2=vec2(v1.y,-v1.x);
+  vec2 nc=cp.xy/cp.z*uF/uVP*2.;
+  vec2 d=(q.x*v1*sqrt(l1)+q.y*v2*sqrt(l2))*3./uVP*2.;
+  gl_Position=vec4(nc+d,0.,1.);vUV=q;vCol=aCol;}`;
+const FS=`#version 300 es
+precision highp float;
+in vec4 vCol;in vec2 vUV;out vec4 fc;
+void main(){
+  float a=vCol.a*exp(-.5*(vUV.x*vUV.x+vUV.y*vUV.y)*9.);
+  if(a<.02)discard;
+  fc=vec4(vCol.rgb,a);}`;
+function sh(t,s){const x=gl.createShader(t);gl.shaderSource(x,s);
+  gl.compileShader(x);if(!gl.getShaderParameter(x,gl.COMPILE_STATUS))console.error(gl.getShaderInfoLog(x));return x;}
+const prog=gl.createProgram();
+gl.attachShader(prog,sh(gl.VERTEX_SHADER,VS));
+gl.attachShader(prog,sh(gl.FRAGMENT_SHADER,FS));
+gl.linkProgram(prog);gl.useProgram(prog);
+const uP=gl.getUniformLocation(prog,"uP"),uV=gl.getUniformLocation(prog,"uV"),
+      uF=gl.getUniformLocation(prog,"uF"),uVP=gl.getUniformLocation(prog,"uVP");
+let vao=null,bPos,bSc,bCol,bRot;
+function upload(d){
+  if(vao)gl.deleteVertexArray(vao);
+  vao=gl.createVertexArray();gl.bindVertexArray(vao);
+  function attr(buf,data,name,sz,type,norm){
+    if(buf)gl.deleteBuffer(buf);buf=gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER,buf);
+    gl.bufferData(gl.ARRAY_BUFFER,data,gl.STATIC_DRAW);
+    const loc=gl.getAttribLocation(prog,name);
+    gl.enableVertexAttribArray(loc);
+    gl.vertexAttribPointer(loc,sz,type,norm,0,0);
+    gl.vertexAttribDivisor(loc,1);return buf;}
+  bPos=attr(bPos,d.pos,"aPos",3,gl.FLOAT,false);
+  bSc =attr(bSc, d.sc, "aSc", 3,gl.FLOAT,false);
+  bCol=attr(bCol,d.col,"aCol",4,gl.UNSIGNED_BYTE,true);
+  bRot=attr(bRot,d.rot,"aRot",4,gl.UNSIGNED_BYTE,false);
+  gl.bindVertexArray(null);splat=d;}
+function p4(f,a,n,fa){const t=1/Math.tan(f/2),nf=1/(n-fa);
+  return new Float32Array([t/a,0,0,0,0,t,0,0,0,0,(fa+n)*nf,-1,0,0,2*fa*n*nf,0]);}
+function v4(p,pi,ya){const cp=Math.cos(pi),sp=Math.sin(pi),cy=Math.cos(ya),sy=Math.sin(ya);
+  const rx=Math.cos(ya-Math.PI/2),rz=Math.sin(ya-Math.PI/2);
+  const[px,py,pz]=p;
+  return new Float32Array([rx,0,rz,0,0,cp,0,0,-cy*cp,-sp,-sy*cp,0,
+    -(rx*px+rz*pz),-(cp*py),cy*cp*px+sp*py+sy*cp*pz,1]);}
+function resize(){canvas.width=window.innerWidth*devicePixelRatio;
+  canvas.height=window.innerHeight*devicePixelRatio;
+  gl.viewport(0,0,canvas.width,canvas.height);}
+window.addEventListener("resize",resize);resize();
+function frame(){
+  requestAnimationFrame(frame);if(!splat)return;
+  const cp=Math.cos(cam.pitch),sp=Math.sin(cam.pitch);
+  const cy=Math.cos(cam.yaw),sy=Math.sin(cam.yaw);
+  const fwd=[cy*cp,sp,sy*cp],rt=[Math.cos(cam.yaw-Math.PI/2),0,Math.sin(cam.yaw-Math.PI/2)];
+  const s=cam.spd;
+  if(keys["w"]||keys["arrowup"])  {cam.p[0]+=fwd[0]*s;cam.p[1]+=fwd[1]*s;cam.p[2]+=fwd[2]*s;}
+  if(keys["s"]||keys["arrowdown"]){cam.p[0]-=fwd[0]*s;cam.p[1]-=fwd[1]*s;cam.p[2]-=fwd[2]*s;}
+  if(keys["a"]||keys["arrowleft"]){cam.p[0]-=rt[0]*s;cam.p[2]-=rt[2]*s;}
+  if(keys["d"]||keys["arrowright"]){cam.p[0]+=rt[0]*s;cam.p[2]+=rt[2]*s;}
+  if(keys["q"])cam.p[1]-=s;if(keys["e"])cam.p[1]+=s;
+  const asp=canvas.width/canvas.height;
+  const proj=p4(Math.PI/3,asp,.1,100),view=v4(cam.p,cam.pitch,cam.yaw);
+  const fx=canvas.width/(2*Math.tan(Math.PI/6)),fy=canvas.height/(2*Math.tan(Math.PI/6));
+  gl.clearColor(0,0,0,1);gl.clear(gl.COLOR_BUFFER_BIT);
+  gl.enable(gl.BLEND);
+  gl.blendFuncSeparate(gl.ONE_MINUS_DST_ALPHA,gl.ONE,gl.ONE_MINUS_DST_ALPHA,gl.ONE);
+  gl.disable(gl.DEPTH_TEST);
+  gl.useProgram(prog);
+  gl.uniformMatrix4fv(uP,false,proj);gl.uniformMatrix4fv(uV,false,view);
+  gl.uniform2f(uF,fx,fy);gl.uniform2f(uVP,canvas.width,canvas.height);
+  gl.bindVertexArray(vao);
+  gl.drawArraysInstanced(gl.TRIANGLE_STRIP,0,4,splat.n);
+  gl.bindVertexArray(null);}
+async function sw(k){
+  if(k===cur)return;cur=k;
+  document.getElementById("b3").classList.toggle("active",k==="3dgs");
+  document.getElementById("bm").classList.toggle("active",k==="mip");
+  upload(parseSplat(await loadSplat(MODELS[k])));}
+(async()=>{upload(parseSplat(await loadSplat(MODELS["3dgs"])));requestAnimationFrame(frame);})();
+</script></body></html>
