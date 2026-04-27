@@ -192,18 +192,15 @@
 #ui{position:fixed;top:16px;left:50%;transform:translateX(-50%);
   display:flex;flex-direction:column;align-items:center;gap:8px;
   font-family:system-ui,sans-serif;z-index:9999}
-#uititle{background:rgba(0,0,0,.75);backdrop-filter:blur(8px);
-  padding:7px 18px;border-radius:20px;font-size:13px;color:#fff;
+#uititle{background:rgba(0,0,0,.8);backdrop-filter:blur(8px);
+  padding:8px 20px;border-radius:20px;font-size:13px;color:#fff;
   border:1px solid rgba(255,255,255,.15)}
-.uirow{display:flex;background:rgba(0,0,0,.75);backdrop-filter:blur(8px);
+.uirow{display:flex;background:rgba(0,0,0,.8);backdrop-filter:blur(8px);
   border-radius:24px;border:1px solid rgba(255,255,255,.15);overflow:hidden}
-.ubtn{padding:7px 18px;font-size:11px;font-weight:600;cursor:pointer;
+.ubtn{padding:8px 20px;font-size:12px;font-weight:600;cursor:pointer;
   border:none;background:transparent;color:rgba(255,255,255,.5);transition:all .2s}
 .ubtn.active{background:#fff;color:#000;border-radius:24px}
-#loading{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
-  background:rgba(0,0,0,.8);color:#fff;padding:16px 28px;border-radius:12px;
-  font-size:14px;font-family:system-ui;display:none}
-#badge{position:fixed;bottom:16px;right:16px;background:rgba(0,0,0,.75);
+#badge{position:fixed;bottom:16px;right:16px;background:rgba(0,0,0,.8);
   backdrop-filter:blur(8px);padding:6px 14px;border-radius:16px;font-size:11px;
   color:rgba(255,255,255,.4);border:1px solid rgba(255,255,255,.1)}
 </style>
@@ -211,102 +208,44 @@
 <div id="ui">
   <div id="uititle">CS 515 — 3DGS vs Mip-Splatting</div>
   <div class="uirow">
-    <button class="ubtn active" id="b3" onclick="setMethod('3dgs')">3DGS Baseline</button>
-    <button class="ubtn"        id="bm" onclick="setMethod('mip')">Mip-Splatting</button>
+    <button class="ubtn" id="b3" onclick="sw('3dgs')">3DGS Baseline</button>
+    <button class="ubtn" id="bm" onclick="sw('mip')">Mip-Splatting</button>
   </div>
   <div class="uirow">
-    <button class="ubtn active" id="bg" onclick="setScene('garden')">Garden</button>
-    <button class="ubtn"        id="bo" onclick="setScene('own')">My Scene</button>
+    <button class="ubtn" id="bg" onclick="ss('garden')">Garden</button>
+    <button class="ubtn" id="bo" onclick="ss('own')">My Scene</button>
   </div>
 </div>
-<div id="loading">Loading...</div>
 <div id="badge">CS 515 Advanced CV</div>
-
 <script>
-const SPLATS = {
+const F = {
   "garden_3dgs": "garden_3dgs.splat",
   "garden_mip":  "garden_mip.splat",
   "own_3dgs":    "my_scene_3dgs.splat",
   "own_mip":     "my_scene_mip.splat"
 };
 
-let curMethod = "3dgs", curScene = "garden", isLoading = false;
+const p = new URLSearchParams(window.location.search);
+const cur = p.get("url") || "";
 
-async function loadSplat(url) {
-  const ld = document.getElementById("loading");
-  ld.style.display = "block";
-  ld.textContent = "Loading " + url + "...";
-  try {
-    const res = await fetch(url);
-    if (!res.ok) throw new Error("HTTP " + res.status);
-    const buf = await res.arrayBuffer();
-    ld.style.display = "none";
-    return buf;
-  } catch(e) {
-    ld.textContent = "Error: " + e.message;
-    setTimeout(()=>ld.style.display="none", 3000);
-    return null;
-  }
+let m = "3dgs", s = "garden";
+for (const [k,v] of Object.entries(F)) {
+  if (cur === v) { s=k.split("_")[0]; m=k.split("_")[1]; }
 }
 
-async function switchTo(scene, method) {
-  if (isLoading) return;
-  isLoading = true;
-  curScene = scene; curMethod = method;
-
-  // Update button states
-  document.getElementById("b3").classList.toggle("active", method==="3dgs");
-  document.getElementById("bm").classList.toggle("active", method==="mip");
-  document.getElementById("bg").classList.toggle("active", scene==="garden");
-  document.getElementById("bo").classList.toggle("active", scene==="own");
-
-  const key = scene + "_" + method;
-  const url = SPLATS[key];
-
-  // Use the viewer's built-in URL loading if available
-  if (typeof viewer !== "undefined" && viewer.loadUrl) {
-    await viewer.loadUrl(url);
-  } else {
-    // Fallback: fetch and inject via file input
-    const buf = await loadSplat(url);
-    if (buf) {
-      const blob = new Blob([buf]);
-      const file = new File([blob], url.split("/").pop());
-      const dt = new DataTransfer(); dt.items.add(file);
-      // Try all possible input selectors
-      const inp = document.querySelector('input[type=file]') ||
-                  document.querySelector('#splatfile') ||
-                  document.querySelector('input');
-      if (inp) {
-        inp.files = dt.files;
-        inp.dispatchEvent(new Event("change", {bubbles: true}));
-        inp.dispatchEvent(new Event("input",  {bubbles: true}));
-      }
-    }
-  }
-  isLoading = false;
+function upd() {
+  document.getElementById("b3").classList.toggle("active", m==="3dgs");
+  document.getElementById("bm").classList.toggle("active", m==="mip");
+  document.getElementById("bg").classList.toggle("active", s==="garden");
+  document.getElementById("bo").classList.toggle("active", s==="own");
 }
 
-function setMethod(m) { switchTo(curScene, m); }
-function setScene(s)  { switchTo(s, curMethod); }
+function go() { window.location.href = "?url=" + F[s+"_"+m]; }
+function sw(v) { m=v; go(); }
+function ss(v) { s=v; go(); }
 
-// Auto-load on startup — wait for viewer to initialize
-function tryAutoLoad(attempts) {
-  const inp = document.querySelector('input[type=file]') ||
-              document.querySelector('input');
-  if (inp) {
-    console.log("Viewer ready, loading garden_3dgs...");
-    switchTo("garden", "3dgs");
-  } else if (attempts > 0) {
-    setTimeout(() => tryAutoLoad(attempts - 1), 500);
-  } else {
-    console.log("Could not find file input after retries");
-  }
-}
-
-window.addEventListener("load", () => {
-  setTimeout(() => tryAutoLoad(20), 1000);
-});
+if (!cur) { window.location.href = "?url=" + F["garden_3dgs"]; }
+upd();
 </script>
 
 		<script>
