@@ -200,9 +200,9 @@
 a.cur{background:#fff!important;color:#000!important;border-radius:12px}
 </style>
 
-<div id="nav"><a href="index.html" class="cur" style="color:#fff;margin:0 8px;font-size:12px;text-decoration:none;padding:4px 10px;border-radius:12px">Garden — 3DGS Baseline</a><a href="garden_mip.html" style="color:#fff;margin:0 8px;font-size:12px;text-decoration:none;padding:4px 10px;border-radius:12px">Garden — Mip-Splatting</a><a href="my_scene.html" style="color:#fff;margin:0 8px;font-size:12px;text-decoration:none;padding:4px 10px;border-radius:12px">My Scene — 3DGS Baseline</a><a href="my_scene_mip.html" style="color:#fff;margin:0 8px;font-size:12px;text-decoration:none;padding:4px 10px;border-radius:12px">My Scene — Mip-Splatting</a></div>
+<div id="nav"><a href="index.html" style="color:#fff;margin:0 8px;font-size:12px;text-decoration:none;padding:4px 10px;border-radius:12px">Garden — 3DGS Baseline</a><a href="garden_mip.html" class="cur" style="color:#fff;margin:0 8px;font-size:12px;text-decoration:none;padding:4px 10px;border-radius:12px">Garden — Mip-Splatting</a><a href="my_scene.html" style="color:#fff;margin:0 8px;font-size:12px;text-decoration:none;padding:4px 10px;border-radius:12px">My Scene — 3DGS Baseline</a><a href="my_scene_mip.html" style="color:#fff;margin:0 8px;font-size:12px;text-decoration:none;padding:4px 10px;border-radius:12px">My Scene — Mip-Splatting</a></div>
 
-<div id="badge">CS 515 — Garden — 3DGS Baseline</div>
+<div id="badge">CS 515 — Garden — Mip-Splatting</div>
 
 		<script>
 			if(location.host.includes('hf.space')) document.body.classList.add('nohf');
@@ -1035,10 +1035,10 @@ async function main() {
         carousel = false;
     } catch (err) {}
     const url = new URL(
-        // "garden_3dgs.splat",
+        // "garden_mip.splat",
         // location.href,
-        params.get("url") || "garden_3dgs.splat",
-        "garden_3dgs.splat",
+        params.get("url") || "garden_mip.splat",
+        "garden_mip.splat",
     );
     const req = await fetch(url, {
         mode: "cors", // no-cors, *cors, same-origin
@@ -1165,7 +1165,7 @@ async function main() {
                     type: "application/octet-stream",
                 });
                 const link = document.createElement("a");
-                link.download = "garden_3dgs.splat";
+                link.download = "garden_mip.splat";
                 link.href = URL.createObjectURL(blob);
                 document.body.appendChild(link);
                 link.click();
