@@ -189,63 +189,37 @@
 	</head>
 	<body>
 <style>
-#ui{position:fixed;top:16px;left:50%;transform:translateX(-50%);
-  display:flex;flex-direction:column;align-items:center;gap:8px;
-  font-family:system-ui,sans-serif;z-index:9999}
-#uititle{background:rgba(0,0,0,.8);backdrop-filter:blur(8px);
-  padding:8px 20px;border-radius:20px;font-size:13px;color:#fff;
-  border:1px solid rgba(255,255,255,.15)}
-.uirow{display:flex;background:rgba(0,0,0,.8);backdrop-filter:blur(8px);
-  border-radius:24px;border:1px solid rgba(255,255,255,.15);overflow:hidden}
-.ubtn{padding:8px 20px;font-size:12px;font-weight:600;cursor:pointer;
-  border:none;background:transparent;color:rgba(255,255,255,.5);transition:all .2s}
-.ubtn.active{background:#fff;color:#000;border-radius:24px}
+#nav{position:fixed;top:16px;left:50%;transform:translateX(-50%);
+  background:rgba(0,0,0,.8);backdrop-filter:blur(8px);
+  padding:10px 20px;border-radius:24px;z-index:9999;
+  border:1px solid rgba(255,255,255,.15);white-space:nowrap}
 #badge{position:fixed;bottom:16px;right:16px;background:rgba(0,0,0,.8);
   backdrop-filter:blur(8px);padding:6px 14px;border-radius:16px;font-size:11px;
   color:rgba(255,255,255,.4);border:1px solid rgba(255,255,255,.1)}
+a.active{background:#fff;color:#000!important;padding:4px 10px;border-radius:12px}
 </style>
 
-<div id="ui">
-  <div id="uititle">CS 515 — 3DGS vs Mip-Splatting</div>
-  <div class="uirow">
-    <button class="ubtn" id="b3" onclick="sw('3dgs')">3DGS Baseline</button>
-    <button class="ubtn" id="bm" onclick="sw('mip')">Mip-Splatting</button>
-  </div>
-  <div class="uirow">
-    <button class="ubtn" id="bg" onclick="ss('garden')">Garden</button>
-    <button class="ubtn" id="bo" onclick="ss('own')">My Scene</button>
-  </div>
-</div>
-<div id="badge">CS 515 Advanced CV</div>
+<div id="nav"><a href="index.html" class="active" style="color:#fff;margin:0 8px;font-size:12px;text-decoration:none">Garden — 3DGS Baseline</a><a href="garden_mip.html" style="color:#fff;margin:0 8px;font-size:12px;text-decoration:none">Garden — Mip-Splatting</a><a href="my_scene.html" style="color:#fff;margin:0 8px;font-size:12px;text-decoration:none">My Scene — 3DGS Baseline</a><a href="my_scene_mip.html" style="color:#fff;margin:0 8px;font-size:12px;text-decoration:none">My Scene — Mip-Splatting</a></div>
+
+<div id="badge">CS 515 — Garden — 3DGS Baseline</div>
+
 <script>
-const F = {
-  "garden_3dgs": "garden_3dgs.splat",
-  "garden_mip":  "garden_mip.splat",
-  "own_3dgs":    "my_scene_3dgs.splat",
-  "own_mip":     "my_scene_mip.splat"
-};
-
-const p = new URLSearchParams(window.location.search);
-const cur = p.get("url") || "";
-
-let m = "3dgs", s = "garden";
-for (const [k,v] of Object.entries(F)) {
-  if (cur === v) { s=k.split("_")[0]; m=k.split("_")[1]; }
-}
-
-function upd() {
-  document.getElementById("b3").classList.toggle("active", m==="3dgs");
-  document.getElementById("bm").classList.toggle("active", m==="mip");
-  document.getElementById("bg").classList.toggle("active", s==="garden");
-  document.getElementById("bo").classList.toggle("active", s==="own");
-}
-
-function go() { window.location.href = "?url=" + F[s+"_"+m]; }
-function sw(v) { m=v; go(); }
-function ss(v) { s=v; go(); }
-
-if (!cur) { window.location.href = "?url=" + F["garden_3dgs"]; }
-upd();
+// Auto-load splat via URL hash trick
+window.addEventListener("load", function() {
+  // Override the default URL used by the viewer
+  const origFetch = window.fetch;
+  window.fetch = function(url, opts) {
+    if (url && url.toString().includes("huggingface")) {
+      return origFetch("garden_3dgs.splat", opts);
+    }
+    return origFetch(url, opts);
+  };
+  // Directly trigger load via location hash
+  if (!window.location.search) {
+    history.replaceState(null, "", "?url=garden_3dgs.splat");
+    location.reload();
+  }
+});
 </script>
 
 		<script>
