@@ -188,62 +188,55 @@
 		</style>
 	</head>
 	<body>
-
 <style>
-#cs515-ui{position:fixed;top:16px;left:50%;transform:translateX(-50%);
-  display:flex;flex-direction:column;align-items:center;gap:10px;z-index:9999;
-  font-family:system-ui,sans-serif;pointer-events:none}
-#cs515-title{background:rgba(0,0,0,.75);backdrop-filter:blur(8px);
+#csu{position:fixed;top:16px;left:50%;transform:translateX(-50%);
+  display:flex;flex-direction:column;align-items:center;gap:10px;
+  font-family:system-ui,sans-serif;pointer-events:none;z-index:9999}
+#cst{background:rgba(0,0,0,.75);backdrop-filter:blur(8px);
   padding:8px 20px;border-radius:20px;font-size:13px;color:#fff;
   border:1px solid rgba(255,255,255,.15);pointer-events:none}
-#cs515-toggle{display:flex;background:rgba(0,0,0,.75);backdrop-filter:blur(8px);
-  border-radius:24px;border:1px solid rgba(255,255,255,.15);overflow:hidden;pointer-events:all}
-.cs515-btn{padding:8px 22px;font-size:12px;font-weight:600;cursor:pointer;
+#csg{display:flex;background:rgba(0,0,0,.75);backdrop-filter:blur(8px);
+  border-radius:24px;border:1px solid rgba(255,255,255,.15);
+  overflow:hidden;pointer-events:all}
+.csb{padding:8px 22px;font-size:12px;font-weight:600;cursor:pointer;
   border:none;background:transparent;color:rgba(255,255,255,.5);transition:all .2s}
-.cs515-btn.active{background:#fff;color:#000;border-radius:24px}
-#cs515-badge{position:fixed;top:16px;right:16px;background:rgba(0,0,0,.75);
+.csb.active{background:#fff;color:#000;border-radius:24px}
+#csbg{position:fixed;top:16px;right:16px;background:rgba(0,0,0,.75);
   backdrop-filter:blur(8px);padding:6px 14px;border-radius:16px;font-size:11px;
   color:rgba(255,255,255,.4);border:1px solid rgba(255,255,255,.1)}
 </style>
-<div id="cs515-ui">
-  <div id="cs515-title">CS 515 — 3DGS vs Mip-Splatting | Garden Scene</div>
-  <div id="cs515-toggle">
-    <button class="cs515-btn active" id="btn3" onclick="cs515Switch('3dgs')">3DGS Baseline</button>
-    <button class="cs515-btn"        id="btnm" onclick="cs515Switch('mip')">Mip-Splatting</button>
+
+<div id="csu">
+  <div id="cst">CS 515 - 3DGS vs Mip-Splatting | Garden Scene</div>
+  <div id="csg">
+    <button class="csb active" id="b3" onclick="csw('3dgs')">3DGS Baseline</button>
+    <button class="csb"        id="bm" onclick="csw('mip')">Mip-Splatting</button>
   </div>
 </div>
-<div id="cs515-badge">CS 515 Advanced CV</div>
+<div id="csbg">CS 515 Advanced CV</div>
 <script>
-const CS515_MODELS = {"3dgs": "garden_3dgs.splat", "mip": "garden_mip.splat"};
-let cs515_cur = "3dgs";
-function cs515Switch(k) {
-  if (k === cs515_cur) return;
-  cs515_cur = k;
-  document.getElementById("btn3").classList.toggle("active", k==="3dgs");
-  document.getElementById("btnm").classList.toggle("active", k==="mip");
-  // Trigger the viewer's built-in file loader
-  const inp = document.querySelector('input[type=file]');
-  fetch(CS515_MODELS[k])
-    .then(r => r.blob())
-    .then(blob => {
-      const file = new File([blob], CS515_MODELS[k]);
-      const dt = new DataTransfer();
-      dt.items.add(file);
-      if (inp) { inp.files = dt.files; inp.dispatchEvent(new Event('change')); }
-    });
+const CM={"3dgs":"garden_3dgs.splat","mip":"garden_mip.splat"};
+let cc="3dgs";
+function csw(k){
+  if(k===cc)return; cc=k;
+  document.getElementById("b3").classList.toggle("active",k==="3dgs");
+  document.getElementById("bm").classList.toggle("active",k==="mip");
+  fetch(CM[k]).then(r=>r.blob()).then(blob=>{
+    const file=new File([blob],CM[k]);
+    const dt=new DataTransfer();dt.items.add(file);
+    const inp=document.querySelector("input[type=file]");
+    if(inp){inp.files=dt.files;inp.dispatchEvent(new Event("change"));}
+  });
 }
-window.addEventListener('load', () => {
-  setTimeout(() => {
-    fetch(CS515_MODELS["3dgs"])
-      .then(r => r.blob())
-      .then(blob => {
-        const file = new File([blob], CS515_MODELS["3dgs"]);
-        const dt = new DataTransfer();
-        dt.items.add(file);
-        const inp = document.querySelector('input[type=file]');
-        if (inp) { inp.files = dt.files; inp.dispatchEvent(new Event('change')); }
-      });
-  }, 800);
+window.addEventListener("load",()=>{
+  setTimeout(()=>{
+    fetch(CM["3dgs"]).then(r=>r.blob()).then(blob=>{
+      const file=new File([blob],CM["3dgs"]);
+      const dt=new DataTransfer();dt.items.add(file);
+      const inp=document.querySelector("input[type=file]");
+      if(inp){inp.files=dt.files;inp.dispatchEvent(new Event("change"));}
+    });
+  },800);
 });
 </script>
 
